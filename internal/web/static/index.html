@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>k-ai — Sovereign LLM Gateway</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+      --ok: #3fb950; --err: #f85149; --warn: #d29922;
+      --radius: 8px; --hover: #1c2129;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+    header { padding: 0.6rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    header .brand { display: flex; align-items: center; gap: 0.75rem; }
+    header .brand h1 { font-size: 1.25rem; background: linear-gradient(135deg, var(--accent), #a371f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    header .brand span { color: var(--muted); font-size: 0.8rem; }
+    .auth-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .auth-bar label { font-size: 0.65rem; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+
+    input, textarea, select, button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem; font: inherit; font-size: 0.82rem; transition: border-color 0.15s; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); outline: none; }
+    select { cursor: pointer; appearance: auto; }
+    button { cursor: pointer; background: #21262d; transition: all 0.15s; }
+    button:hover { background: #30363d; }
+    button.primary { background: var(--accent); color: #0d1117; border-color: transparent; font-weight: 600; }
+    button.primary:hover { background: #79c0ff; }
+    button.danger { background: transparent; color: var(--err); border-color: var(--err); }
+    button.danger:hover { background: var(--err); color: white; }
+    button.success { background: transparent; color: var(--ok); border-color: var(--ok); }
+    button.success:hover { background: var(--ok); color: white; }
+    button.sm { padding: 0.2rem 0.5rem; font-size: 0.72rem; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    main { padding: 1rem 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+    nav.tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+    nav.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 0.5rem 1rem; color: var(--muted); font-size: 0.82rem; }
+    nav.tabs button.active { border-bottom-color: var(--accent); color: var(--accent); }
+    nav.tabs button:hover { color: var(--text); }
+
+    section.panel { display: none; animation: fadeIn 0.2s ease; }
+    section.panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+    .card h3 { margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; padding: 0.5rem; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; }
+    td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover td { background: rgba(88,166,255,0.03); }
+    td input, td select { width: 100%; font-size: 0.78rem; padding: 0.25rem 0.35rem; }
+    td .btn-group { display: flex; gap: 0.25rem; flex-wrap: nowrap; }
+
+    .grid { display: grid; gap: 1rem; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+    .badge { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; }
+    .badge.ok { background: rgba(63,185,80,0.15); color: var(--ok); }
+    .badge.err { background: rgba(248,81,73,0.15); color: var(--err); }
+    .badge.info { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .badge.warn { background: rgba(210,153,34,0.15); color: var(--warn); }
+    pre, .log { background: #010409; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; overflow: auto; font-size: 0.8rem; white-space: pre-wrap; min-height: 80px; max-height: 400px; font-family: ui-monospace, monospace; }
+    code { background: rgba(110,118,129,0.15); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.78rem; font-family: ui-monospace, monospace; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .status { font-size: 0.8rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .form-row { display: flex; gap: 0.5rem; align-items: end; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .form-row label { display: flex; flex-direction: column; gap: 2px; font-size: 0.68rem; color: var(--muted); }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.82rem; z-index: 1000; animation: slideUp 0.3s ease; max-width: 350px; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .empty { color: var(--muted); font-style: italic; text-align: center; padding: 1.5rem; }
+    .toggle { position: relative; width: 36px; height: 20px; display: inline-block; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: 0.2s; }
+    .toggle .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--text); border-radius: 50%; transition: 0.2s; }
+    .toggle input:checked + .slider { background: var(--ok); }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+    .pg-provider-group { margin-bottom: 0.25rem; }
+    .pg-provider-group summary { cursor: pointer; font-weight: 600; font-size: 0.78rem; color: var(--accent); padding: 0.3rem 0; }
+    .pg-model-btn { display: block; width: 100%; text-align: left; border: none; background: transparent; color: var(--text); padding: 0.3rem 0.75rem; font-size: 0.78rem; cursor: pointer; border-radius: 4px; }
+    .pg-model-btn:hover { background: var(--hover); }
+    .pg-model-btn.selected { background: rgba(88,166,255,0.12); color: var(--accent); }
+    .model-picker { max-height: 350px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+    .model-picker .search { width: 100%; border: none; border-bottom: 1px solid var(--border); border-radius: 6px 6px 0 0; padding: 0.5rem 0.75rem; font-size: 0.82rem; }
+    .model-count { font-size: 0.68rem; color: var(--muted); padding: 0.25rem 0.75rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>k-ai</h1>
+      <span>Sovereign LLM Gateway</span>
+    </div>
+    <div class="auth-bar">
+      <label>Admin Token<input id="adminToken" type="password" placeholder="X-Admin-Token" style="width:150px" /></label>
+      <label>API Key<input id="apiKey" type="password" placeholder="kai_…" style="width:170px" /></label>
+      <button id="saveAuth" class="sm">Save</button>
+      <span id="healthStatus" class="status">—</span>
+    </div>
+  </header>
+
+  <main>
+    <nav class="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="providers">Providers</button>
+      <button data-tab="aliases">Aliases</button>
+      <button data-tab="keys">API Keys</button>
+      <button data-tab="users">Users</button>
+      <button data-tab="playground">Playground</button>
+    </nav>
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview" class="panel active">
+      <div class="grid grid-3" style="margin-bottom:1rem">
+        <div class="card" style="text-align:center"><div class="stat-value" id="statProviders">—</div><div class="stat-label">Providers</div></div>
+        <div class="card" style="text-align:center"><div class="stat-value" id="statModels">—</div><div class="stat-label">Models</div></div>
+        <div class="card" style="text-align:center"><div class="stat-value" id="statAliases">—</div><div class="stat-label">Aliases</div></div>
+        <div class="card" style="text-align:center"><div class="stat-value" id="statKeys">—</div><div class="stat-label">API Keys</div></div>
+        <div class="card" style="text-align:center"><div class="stat-value" id="statUsers">—</div><div class="stat-label">Users</div></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>API Endpoints</h3>
+          <table><tbody>
+            <tr><td><code>GET /v1/models</code></td><td>List available models</td></tr>
+            <tr><td><code>POST /v1/chat/completions</code></td><td>Chat (streaming supported)</td></tr>
+            <tr><td><code>/admin/api/v1/*</code></td><td>Admin management</td></tr>
+            <tr><td><code>POST /auth/register</code></td><td>User registration</td></tr>
+            <tr><td><code>POST /auth/login</code></td><td>User login (JWT)</td></tr>
+            <tr><td><code>GET /health</code></td><td>Health check</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card">
+          <h3>Alias Shortcuts</h3>
+          <div id="aliasHints" class="empty">Loading...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROVIDERS -->
+    <section id="tab-providers" class="panel">
+      <div class="flex-between">
+        <h2 style="font-size:1.1rem">Providers</h2>
+        <div style="display:flex;gap:0.5rem">
+          <button id="reloadProviders" class="sm">Refresh</button>
+          <button id="toggleAddProvider" class="sm primary">+ Add</button>
+        </div>
+      </div>
+      <div id="addProviderForm" class="card" style="display:none">
+        <h3>Add Provider</h3>
+        <div class="form-row">
+          <label>ID<input id="npId" placeholder="my-provider" /></label>
+          <label>Name<input id="npName" placeholder="My Provider" /></label>
+          <label>Base URL<input id="npUrl" placeholder="https://api.example.com/v1" style="width:250px" /></label>
+          <label>API Key<input id="npKey" type="password" placeholder="sk-..." /></label>
+          <label>Priority<input id="npPri" type="number" value="50" style="width:60px" /></label>
+          <button class="primary sm" id="addProvBtn">Create</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Base URL</th><th>API Key</th><th>Priority</th><th>Enabled</th><th style="width:120px">Actions</th></tr></thead>
+        <tbody id="providersBody"></tbody>
+      </table>
+    </section>
+
+    <!-- ALIASES -->
+    <section id="tab-aliases" class="panel">
+      <div class="flex-between">
+        <h2 style="font-size:1.1rem">Alias Rules</h2>
+        <div style="display:flex;gap:0.5rem">
+          <button id="reloadAliases" class="sm">Refresh</button>
+          <button id="toggleAddAlias" class="sm primary">+ Add</button>
+        </div>
+      </div>
+      <div id="addAliasForm" class="card" style="display:none">
+        <h3>Add Alias Rule</h3>
+        <div class="form-row">
+          <label>ID<input id="naId" placeholder="my-alias" /></label>
+          <label>Pattern<input id="naPattern" placeholder="prefix-*" /></label>
+          <label>Match Type<select id="naType"><option value="glob">glob</option><option value="regex">regex</option><option value="exact">exact</option></select></label>
+          <label>Provider<select id="naProv"></select></label>
+          <label>Rewrite<input id="naRewrite" placeholder="${model}" value="${model}" /></label>
+          <label>Prefix<input id="naPrefix" placeholder="prefix-" /></label>
+          <label>Priority<input id="naPri" type="number" value="10" style="width:60px" /></label>
+          <button class="primary sm" id="addAliasBtn">Create</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Type</th><th>Pattern</th><th>Rewrite</th><th>Provider</th><th>Priority</th><th>Enabled</th><th style="width:120px">Actions</th></tr></thead>
+        <tbody id="aliasesBody"></tbody>
+      </table>
+    </section>
+
+    <!-- API KEYS -->
+    <section id="tab-keys" class="panel">
+      <div class="flex-between">
+        <h2 style="font-size:1.1rem">API Keys</h2>
+        <div style="display:flex;gap:0.5rem">
+          <button id="reloadKeys" class="sm">Refresh</button>
+          <button id="createKeyBtn" class="sm primary">+ Create Key</button>
+        </div>
+      </div>
+      <div id="newKeyBox" class="card" style="display:none;border-color:var(--ok)">
+        <strong style="color:var(--ok)">Key created — copy it now:</strong>
+        <pre id="newKeyValue" style="margin-top:0.5rem;min-height:auto;user-select:all"></pre>
+      </div>
+      <div id="addKeyForm" class="card" style="display:none">
+        <h3>Create API Key</h3>
+        <div class="form-row">
+          <label>Name<input id="nkName" placeholder="my-key" /></label>
+          <label>Scopes
+            <select id="nkScopes" multiple style="min-height:50px">
+              <option value="chat" selected>chat</option>
+              <option value="models" selected>models</option>
+              <option value="*">* (all)</option>
+            </select>
+          </label>
+          <button class="primary sm" id="addKeyBtn">Create</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>ID</th><th>Scopes</th><th>User</th><th>Created</th><th>Enabled</th><th style="width:80px">Actions</th></tr></thead>
+        <tbody id="keysBody"></tbody>
+      </table>
+    </section>
+
+    <!-- USERS -->
+    <section id="tab-users" class="panel">
+      <div class="flex-between">
+        <h2 style="font-size:1.1rem">Users</h2>
+        <div style="display:flex;gap:0.5rem">
+          <button id="reloadUsers" class="sm">Refresh</button>
+          <button id="toggleAddUser" class="sm primary">+ Register</button>
+        </div>
+      </div>
+      <div id="addUserForm" class="card" style="display:none">
+        <h3>Register User</h3>
+        <div class="form-row">
+          <label>Username<input id="nuUser" placeholder="username" /></label>
+          <label>Password<input id="nuPass" type="password" placeholder="min 8 chars" /></label>
+          <label>Email<input id="nuEmail" placeholder="user@example.com" /></label>
+          <button class="primary sm" id="addUserBtn">Register</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Enabled</th><th>Created</th><th style="width:120px">Actions</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </section>
+
+    <!-- PLAYGROUND -->
+    <section id="tab-playground" class="panel">
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Request</h3>
+          <div class="form-row" style="margin-bottom:0.5rem">
+            <label style="flex:1">Provider
+              <select id="pgProvider" style="width:100%"><option value="">All providers</option></select>
+            </label>
+          </div>
+          <label style="font-size:0.68rem;color:var(--muted)">Model</label>
+          <div class="model-picker" id="modelPicker">
+            <input class="search" id="pgModelSearch" placeholder="Search models..." />
+            <div id="pgModelList"></div>
+            <div class="model-count" id="pgModelCount"></div>
+          </div>
+          <div id="pgSelectedModel" style="margin-top:0.5rem;font-size:0.82rem"></div>
+
+          <label style="font-size:0.68rem;color:var(--muted);margin-top:0.75rem;display:block">Message</label>
+          <textarea id="pgPrompt" rows="4" style="width:100%;margin-top:4px;resize:vertical">Hello!</textarea>
+          <div style="display:flex;align-items:center;gap:1rem;margin-top:0.75rem">
+            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer">
+              <input id="pgStream" type="checkbox" checked /> Stream
+            </label>
+            <label style="font-size:0.68rem;color:var(--muted)">Max tokens
+              <input id="pgMaxTokens" type="number" value="256" style="width:65px" />
+            </label>
+            <button class="primary" id="pgSend" style="margin-left:auto">Send</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex-between">
+            <h3>Response</h3>
+            <span id="pgMeta" style="font-size:0.68rem;color:var(--muted)"></span>
+          </div>
+          <pre id="pgOutput" class="log" style="margin-top:0.5rem"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    function toast(msg, color='var(--text)') {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.style.borderLeftColor = color;
+      el.style.borderLeftWidth = '3px';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    function loadAuth() {
+      $('#adminToken').value = localStorage.getItem('k_ai_admin') || '';
+      $('#apiKey').value = localStorage.getItem('k_ai_apikey') || '';
+    }
+    function saveAuth() {
+      localStorage.setItem('k_ai_admin', $('#adminToken').value.trim());
+      localStorage.setItem('k_ai_apikey', $('#apiKey').value.trim());
+      refreshAll();
+      toast('Auth saved', 'var(--ok)');
+    }
+
+    async function adminFetch(path, opts = {}) {
+      const h = Object.assign({ 'X-Admin-Token': $('#adminToken').value.trim() }, opts.headers || {});
+      const res = await fetch(path, { ...opts, headers: h });
+      if (!res.ok) { const t = await res.text(); throw new Error(`${res.status}: ${t}`); }
+      if (res.status === 204) return null;
+      return res.json();
+    }
+    async function apiFetch(path, opts = {}) {
+      const h = Object.assign({ 'Authorization': 'Bearer ' + $('#apiKey').value.trim() }, opts.headers || {});
+      return fetch(path, { ...opts, headers: h });
+    }
+
+    async function checkHealth() {
+      const el = $('#healthStatus');
+      try {
+        const d = await (await fetch('/health')).json();
+        el.textContent = d.status === 'ok' ? '● Online' : '● Error';
+        el.className = 'status ' + (d.status === 'ok' ? 'ok' : 'err');
+      } catch { el.textContent = '● Offline'; el.className = 'status err'; }
+    }
+
+    let cachedProviders = [], cachedAliases = [], cachedKeys = [], cachedUsers = [];
+    let allModels = [];
+    let selectedModel = '';
+
+    function makeToggle(checked, onChange) {
+      const lbl = document.createElement('label');
+      lbl.className = 'toggle';
+      const inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.checked = checked;
+      inp.onchange = () => onChange(inp.checked);
+      const span = document.createElement('span');
+      span.className = 'slider';
+      lbl.append(inp, span);
+      return lbl;
+    }
+
+    // ═══════════ PROVIDERS ═══════════
+    async function loadProviders() {
+      try {
+        const data = await adminFetch('/admin/api/v1/providers');
+        cachedProviders = data.providers || [];
+        const body = $('#providersBody');
+        body.innerHTML = '';
+        if (!cachedProviders.length) { body.innerHTML = '<tr><td colspan="7" class="empty">No providers</td></tr>'; return; }
+        for (const p of cachedProviders) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${p.id}</strong></td>
+            <td><input data-f="name" value="${esc(p.name)}" style="width:100px" /></td>
+            <td><input data-f="base_url" value="${esc(p.base_url)}" style="min-width:180px" /></td>
+            <td><input data-f="api_key" type="password" value="${esc(p.api_key||'')}" style="width:120px" /></td>
+            <td><input data-f="priority" type="number" value="${p.priority||0}" style="width:55px" /></td>
+            <td class="toggle-cell"></td>
+            <td><div class="btn-group"></div></td>`;
+          const toggleCell = tr.querySelector('.toggle-cell');
+          toggleCell.appendChild(makeToggle(p.enabled, async (v) => {
+            await saveProvider(p.id, tr, { enabled: v });
+          }));
+          const btnGroup = tr.querySelector('.btn-group');
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'success sm';
+          saveBtn.textContent = 'Save';
+          saveBtn.onclick = () => saveProvider(p.id, tr);
+          const delBtn = document.createElement('button');
+          delBtn.className = 'danger sm';
+          delBtn.textContent = 'Del';
+          delBtn.onclick = async () => {
+            if (!confirm(`Delete provider "${p.id}"?`)) return;
+            await adminFetch('/admin/api/v1/providers/' + p.id, { method: 'DELETE' });
+            toast('Deleted ' + p.id, 'var(--warn)');
+            loadProviders();
+          };
+          btnGroup.append(saveBtn, delBtn);
+          body.appendChild(tr);
+        }
+        $('#statProviders').textContent = cachedProviders.filter(p=>p.enabled).length;
+        updateProviderSelectors();
+      } catch (e) { console.error('providers', e); }
+    }
+
+    async function saveProvider(id, tr, overrides = {}) {
+      const get = f => { const el = tr.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : undefined; };
+      const body = {
+        id,
+        name: get('name'),
+        base_url: get('base_url'),
+        api_key: get('api_key'),
+        priority: parseInt(get('priority')) || 0,
+        enabled: overrides.enabled !== undefined ? overrides.enabled : tr.querySelector('.toggle input').checked,
+        models: [{ match_type: 'glob', pattern: '*' }]
+      };
+      try {
+        await adminFetch('/admin/api/v1/providers/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        toast('Provider saved', 'var(--ok)');
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    async function addProvider() {
+      const body = {
+        id: $('#npId').value.trim(),
+        name: $('#npName').value.trim() || $('#npId').value.trim(),
+        base_url: $('#npUrl').value.trim(),
+        api_key: $('#npKey').value.trim(),
+        enabled: true,
+        priority: parseInt($('#npPri').value) || 50,
+        models: [{ match_type: 'glob', pattern: '*' }]
+      };
+      if (!body.id || !body.base_url) { toast('ID and Base URL required', 'var(--err)'); return; }
+      try {
+        await adminFetch('/admin/api/v1/providers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        toast('Provider created', 'var(--ok)');
+        $('#addProviderForm').style.display = 'none';
+        loadProviders();
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    function updateProviderSelectors() {
+      const selectors = [
+        $('#naProv'), $('#pgProvider')
+      ];
+      for (const sel of selectors) {
+        if (!sel) continue;
+        const val = sel.value;
+        const isFilter = sel.id === 'pgProvider';
+        sel.innerHTML = isFilter ? '<option value="">All providers</option>' : '';
+        for (const p of cachedProviders) {
+          if (!p.enabled) continue;
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `${p.name} (${p.id})`;
+          sel.appendChild(opt);
+        }
+        if (val) sel.value = val;
+      }
+    }
+
+    // ═══════════ ALIASES ═══════════
+    async function loadAliases() {
+      try {
+        const data = await adminFetch('/admin/api/v1/aliases');
+        cachedAliases = data.aliases || [];
+        const body = $('#aliasesBody');
+        const hints = $('#aliasHints');
+        body.innerHTML = ''; hints.innerHTML = '';
+        if (!cachedAliases.length) { body.innerHTML = '<tr><td colspan="8" class="empty">No aliases</td></tr>'; return; }
+
+        const htbl = document.createElement('table');
+        htbl.style.fontSize = '0.78rem';
+        for (const a of cachedAliases) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${a.id}</strong></td>
+            <td><select data-f="match_type"><option value="glob" ${a.match_type==='glob'?'selected':''}>glob</option><option value="regex" ${a.match_type==='regex'?'selected':''}>regex</option><option value="exact" ${a.match_type==='exact'?'selected':''}>exact</option></select></td>
+            <td><input data-f="pattern" value="${esc(a.pattern)}" /></td>
+            <td><input data-f="rewrite" value="${esc(a.rewrite||'${model}')}" style="width:100px" /></td>
+            <td><select data-f="provider_id" class="prov-select"></select></td>
+            <td><input data-f="priority" type="number" value="${a.priority||0}" style="width:50px" /></td>
+            <td class="toggle-cell"></td>
+            <td><div class="btn-group"></div></td>`;
+          const provSel = tr.querySelector('.prov-select');
+          for (const p of cachedProviders) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.id;
+            if (p.id === a.provider_id) opt.selected = true;
+            provSel.appendChild(opt);
+          }
+          const toggleCell = tr.querySelector('.toggle-cell');
+          toggleCell.appendChild(makeToggle(a.enabled !== false, async (v) => {
+            await saveAlias(a.id, tr, { enabled: v });
+          }));
+          const btnGroup = tr.querySelector('.btn-group');
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'success sm'; saveBtn.textContent = 'Save';
+          saveBtn.onclick = () => saveAlias(a.id, tr);
+          const delBtn = document.createElement('button');
+          delBtn.className = 'danger sm'; delBtn.textContent = 'Del';
+          delBtn.onclick = async () => {
+            if (!confirm(`Delete alias "${a.id}"?`)) return;
+            await adminFetch('/admin/api/v1/aliases/' + a.id, { method: 'DELETE' });
+            toast('Alias deleted', 'var(--warn)');
+            loadAliases();
+          };
+          btnGroup.append(saveBtn, delBtn);
+          body.appendChild(tr);
+
+          const hrow = document.createElement('tr');
+          hrow.innerHTML = `<td><code>${a.pattern}</code></td><td style="color:var(--muted)">→ ${a.provider_id}</td>`;
+          htbl.appendChild(hrow);
+        }
+        hints.appendChild(htbl);
+        $('#statAliases').textContent = cachedAliases.length;
+      } catch (e) { console.error('aliases', e); }
+    }
+
+    async function saveAlias(id, tr, overrides = {}) {
+      const get = f => { const el = tr.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : undefined; };
+      const body = {
+        id,
+        name: id,
+        match_type: get('match_type'),
+        pattern: get('pattern'),
+        rewrite: get('rewrite') || '${model}',
+        provider_id: get('provider_id'),
+        priority: parseInt(get('priority')) || 0,
+        enabled: overrides.enabled !== undefined ? overrides.enabled : tr.querySelector('.toggle input').checked
+      };
+      try {
+        await adminFetch('/admin/api/v1/aliases/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        toast('Alias saved', 'var(--ok)');
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    async function addAlias() {
+      const body = {
+        id: $('#naId').value.trim(),
+        name: $('#naId').value.trim(),
+        match_type: $('#naType').value,
+        pattern: $('#naPattern').value.trim(),
+        rewrite: $('#naRewrite').value.trim() || '${model}',
+        provider_id: $('#naProv').value,
+        prefix: $('#naPrefix').value.trim(),
+        priority: parseInt($('#naPri').value) || 10,
+        enabled: true
+      };
+      if (!body.id || !body.pattern || !body.provider_id) { toast('ID, Pattern, and Provider required', 'var(--err)'); return; }
+      try {
+        await adminFetch('/admin/api/v1/aliases', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        toast('Alias created', 'var(--ok)');
+        $('#addAliasForm').style.display = 'none';
+        loadAliases();
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    // ═══════════ API KEYS ═══════════
+    async function loadKeys() {
+      try {
+        const data = await adminFetch('/admin/api/v1/api-keys');
+        cachedKeys = data.api_keys || [];
+        const body = $('#keysBody');
+        body.innerHTML = '';
+        if (!cachedKeys.length) { body.innerHTML = '<tr><td colspan="7" class="empty">No API keys</td></tr>'; return; }
+        for (const k of cachedKeys) {
+          const tr = document.createElement('tr');
+          const scopes = (k.scopes||[]).map(s => `<span class="badge info">${s}</span>`).join(' ');
+          tr.innerHTML = `
+            <td><strong>${k.name}</strong></td>
+            <td><code style="font-size:0.7rem">${k.id}</code></td>
+            <td>${scopes}</td>
+            <td style="font-size:0.72rem;color:var(--muted)">${k.user_id || '—'}</td>
+            <td style="font-size:0.72rem">${new Date(k.created_at).toLocaleDateString()}</td>
+            <td><span class="badge ${k.enabled?'ok':'err'}">${k.enabled?'ON':'OFF'}</span></td>
+            <td><button class="danger sm" data-del-key="${k.id}">Del</button></td>`;
+          tr.querySelector('[data-del-key]').onclick = async () => {
+            if (!confirm('Delete key?')) return;
+            await adminFetch('/admin/api/v1/api-keys/' + k.id, { method: 'DELETE' });
+            toast('Key deleted', 'var(--warn)');
+            loadKeys();
+          };
+          body.appendChild(tr);
+        }
+        $('#statKeys').textContent = cachedKeys.length;
+      } catch (e) { console.error('keys', e); }
+    }
+
+    async function createKey() {
+      const name = $('#nkName').value.trim();
+      if (!name) { toast('Name required', 'var(--err)'); return; }
+      const sel = $('#nkScopes');
+      const scopes = Array.from(sel.selectedOptions).map(o => o.value);
+      try {
+        const row = await adminFetch('/admin/api/v1/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, scopes })
+        });
+        $('#newKeyBox').style.display = 'block';
+        $('#newKeyValue').textContent = row.key;
+        $('#apiKey').value = row.key;
+        localStorage.setItem('k_ai_apikey', row.key);
+        toast('API key created', 'var(--ok)');
+        $('#addKeyForm').style.display = 'none';
+        loadKeys();
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    // ═══════════ USERS ═══════════
+    async function loadUsers() {
+      try {
+        const data = await adminFetch('/admin/api/v1/users');
+        cachedUsers = data.users || [];
+        const body = $('#usersBody');
+        body.innerHTML = '';
+        if (!cachedUsers.length) { body.innerHTML = '<tr><td colspan="6" class="empty">No users</td></tr>'; return; }
+        for (const u of cachedUsers) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${u.username}</strong></td>
+            <td><input data-f="email" value="${esc(u.email||'')}" style="width:150px" /></td>
+            <td><select data-f="role"><option value="user" ${u.role==='user'?'selected':''}>user</option><option value="admin" ${u.role==='admin'?'selected':''}>admin</option></select></td>
+            <td class="toggle-cell"></td>
+            <td style="font-size:0.72rem">${new Date(u.created_at).toLocaleDateString()}</td>
+            <td><div class="btn-group"></div></td>`;
+          const toggleCell = tr.querySelector('.toggle-cell');
+          toggleCell.appendChild(makeToggle(u.enabled, async (v) => {
+            await saveUser(u.id, { enabled: v });
+          }));
+          const btnGroup = tr.querySelector('.btn-group');
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'success sm'; saveBtn.textContent = 'Save';
+          saveBtn.onclick = async () => {
+            const role = tr.querySelector('[data-f="role"]').value;
+            const email = tr.querySelector('[data-f="email"]').value.trim();
+            await saveUser(u.id, { role, email });
+          };
+          const delBtn = document.createElement('button');
+          delBtn.className = 'danger sm'; delBtn.textContent = 'Del';
+          delBtn.onclick = async () => {
+            if (!confirm(`Delete user "${u.username}"?`)) return;
+            await adminFetch('/admin/api/v1/users/' + u.id, { method: 'DELETE' });
+            toast('User deleted', 'var(--warn)');
+            loadUsers();
+          };
+          btnGroup.append(saveBtn, delBtn);
+          body.appendChild(tr);
+        }
+        $('#statUsers').textContent = cachedUsers.length;
+      } catch (e) { console.error('users', e); }
+    }
+
+    async function saveUser(id, fields) {
+      try {
+        await adminFetch('/admin/api/v1/users/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fields)
+        });
+        toast('User updated', 'var(--ok)');
+        loadUsers();
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    async function registerUser() {
+      const body = {
+        username: $('#nuUser').value.trim(),
+        password: $('#nuPass').value,
+        email: $('#nuEmail').value.trim()
+      };
+      if (!body.username || !body.password) { toast('Username and password required', 'var(--err)'); return; }
+      try {
+        await fetch('/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }).then(async r => {
+          if (!r.ok) { const d = await r.json(); throw new Error(d.error || r.status); }
+          return r.json();
+        });
+        toast('User registered', 'var(--ok)');
+        $('#addUserForm').style.display = 'none';
+        loadUsers();
+      } catch (e) { toast('Error: ' + e.message, 'var(--err)'); }
+    }
+
+    // ═══════════ MODELS + PLAYGROUND ═══════════
+    async function loadModels() {
+      try {
+        const res = await apiFetch('/v1/models');
+        const data = await res.json();
+        allModels = (data.data || []).sort((a, b) => a.id.localeCompare(b.id));
+        $('#statModels').textContent = allModels.length;
+        renderModelPicker();
+      } catch (e) { console.error('models', e); }
+    }
+
+    function renderModelPicker() {
+      const container = $('#pgModelList');
+      const countEl = $('#pgModelCount');
+      const filter = ($('#pgModelSearch').value || '').toLowerCase();
+      const provFilter = $('#pgProvider').value;
+
+      let filtered = allModels;
+      if (provFilter) filtered = filtered.filter(m => m.owned_by === provFilter || m.owned_by === 'alias:' + provFilter);
+      if (filter) filtered = filtered.filter(m => m.id.toLowerCase().includes(filter));
+
+      const grouped = {};
+      for (const m of filtered) {
+        const owner = m.owned_by || 'unknown';
+        if (!grouped[owner]) grouped[owner] = [];
+        grouped[owner].push(m);
+      }
+
+      container.innerHTML = '';
+      const owners = Object.keys(grouped).sort();
+      for (const owner of owners) {
+        const details = document.createElement('details');
+        details.className = 'pg-provider-group';
+        if (owners.length <= 3 || provFilter) details.open = true;
+        const summary = document.createElement('summary');
+        const label = owner.startsWith('alias:') ? owner.replace('alias:', '') + ' (alias)' : owner;
+        summary.textContent = `${label} (${grouped[owner].length})`;
+        details.appendChild(summary);
+        for (const m of grouped[owner]) {
+          const btn = document.createElement('button');
+          btn.className = 'pg-model-btn' + (m.id === selectedModel ? ' selected' : '');
+          btn.textContent = m.id;
+          btn.onclick = () => selectModel(m.id);
+          details.appendChild(btn);
+        }
+        container.appendChild(details);
+      }
+      countEl.textContent = `${filtered.length} / ${allModels.length} models`;
+    }
+
+    function selectModel(id) {
+      selectedModel = id;
+      $('#pgSelectedModel').innerHTML = `Selected: <strong style="color:var(--accent)">${id}</strong>`;
+      $$('.pg-model-btn').forEach(b => b.classList.toggle('selected', b.textContent === id));
+    }
+
+    async function runPlayground() {
+      const out = $('#pgOutput');
+      const meta = $('#pgMeta');
+      out.textContent = '';
+      meta.textContent = 'Sending...';
+      const key = $('#apiKey').value.trim();
+      if (!key) { out.textContent = 'Set an API key first.'; meta.textContent = ''; return; }
+      if (!selectedModel) { out.textContent = 'Select a model from the list.'; meta.textContent = ''; return; }
+      const isStream = $('#pgStream').checked;
+      const body = {
+        model: selectedModel,
+        messages: [{ role: 'user', content: $('#pgPrompt').value }],
+        stream: isStream,
+        max_tokens: parseInt($('#pgMaxTokens').value) || 256
+      };
+      const t0 = performance.now();
+      try {
+        const res = await apiFetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          out.textContent = 'Error: ' + err;
+          meta.textContent = `HTTP ${res.status}`;
+          return;
+        }
+        if (!isStream) {
+          const data = await res.json();
+          const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+          out.textContent = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || JSON.stringify(data, null, 2);
+          meta.textContent = `${elapsed}s | ${data.usage?.total_tokens||'?'} tokens | ${data.model||'?'}`;
+          return;
+        }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let full = '', chunks = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          for (const line of dec.decode(value).split('\n')) {
+            if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+            try {
+              const c = JSON.parse(line.slice(6));
+              const d = c.choices?.[0]?.delta?.content || c.choices?.[0]?.delta?.reasoning_content || '';
+              full += d;
+              chunks++;
+              out.textContent = full;
+            } catch {}
+          }
+        }
+        meta.textContent = `${((performance.now()-t0)/1000).toFixed(2)}s | ${chunks} chunks | streamed`;
+      } catch (e) { out.textContent = 'Error: ' + e.message; meta.textContent = 'failed'; }
+    }
+
+    // ═══════════ TABS ═══════════
+    function showTab(name) {
+      $$('.panel').forEach(p => p.classList.remove('active'));
+      $$('nav.tabs button').forEach(b => b.classList.remove('active'));
+      const panel = $('#tab-' + name);
+      if (panel) panel.classList.add('active');
+      const btn = document.querySelector(`nav.tabs button[data-tab="${name}"]`);
+      if (btn) btn.classList.add('active');
+      if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    }
+
+    function esc(s) { return (s||'').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+    async function refreshAll() {
+      try { await Promise.all([loadProviders(), loadAliases(), loadKeys(), loadUsers(), loadModels()]); } catch (e) { console.error(e); }
+    }
+
+    // Event bindings
+    $$('nav.tabs button').forEach(btn => { btn.onclick = () => showTab(btn.dataset.tab); });
+    $('#saveAuth').onclick = saveAuth;
+    $('#reloadProviders').onclick = loadProviders;
+    $('#reloadAliases').onclick = loadAliases;
+    $('#reloadKeys').onclick = loadKeys;
+    $('#reloadUsers').onclick = loadUsers;
+    $('#createKeyBtn').onclick = () => { $('#addKeyForm').style.display = $('#addKeyForm').style.display === 'none' ? 'block' : 'none'; };
+    $('#addKeyBtn').onclick = createKey;
+    $('#pgSend').onclick = runPlayground;
+    $('#toggleAddProvider').onclick = () => { const f = $('#addProviderForm'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; };
+    $('#toggleAddAlias').onclick = () => { const f = $('#addAliasForm'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; };
+    $('#toggleAddUser').onclick = () => { const f = $('#addUserForm'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; };
+    $('#addProvBtn').onclick = addProvider;
+    $('#addAliasBtn').onclick = addAlias;
+    $('#addUserBtn').onclick = registerUser;
+    $('#pgModelSearch').oninput = renderModelPicker;
+    $('#pgProvider').onchange = renderModelPicker;
+    $('#pgPrompt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) runPlayground(); });
+
+    // Init
+    loadAuth();
+    checkHealth();
+    refreshAll();
+    if (location.hash) showTab(location.hash.replace('#', '') || 'overview');
+    setInterval(checkHealth, 15000);
+  </script>
+</body>
+</html>

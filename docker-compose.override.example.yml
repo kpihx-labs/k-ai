@@ -1,0 +1,10 @@
+services:
+  k-ai:
+    ports:
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  proxy:
+    external: false

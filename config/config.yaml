@@ -1,0 +1,153 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  admin_token: "{env:K_AI_ADMIN_TOKEN}"
+
+database:
+  path: "./data/k-ai.db"
+
+providers:
+  # Local providers: highest priority for direct model names
+  - id: ollama-local
+    name: Ollama Local
+    base_url: "{env:K_AI_OLLAMA_BASE_URL}"
+    api_key: ""
+    enabled: true
+    priority: 100
+    models:
+      - match_type: glob
+        pattern: "*"
+
+  - id: mock
+    name: Mock Provider
+    base_url: "{env:K_AI_BASE_URL}/mock/v1"
+    api_key: ""
+    enabled: true
+    priority: 90
+    models:
+      - match_type: exact
+        pattern: mock-model
+
+  # Cloud providers: lower priority — direct model names go to Ollama first,
+  # prefixed aliases (or-, oc-, v-, m-) route explicitly via alias engine
+  - id: openrouter
+    name: OpenRouter
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "{env:K_AI_OPENROUTER_API_KEY}"
+    enabled: true
+    priority: 30
+    models:
+      - match_type: glob
+        pattern: "*"
+
+  - id: opencode
+    name: OpenCode Zen
+    base_url: "https://opencode.ai/zen/v1"
+    api_key: "{env:K_AI_OPENCODE_API_KEY}"
+    enabled: true
+    priority: 25
+    models:
+      - match_type: glob
+        pattern: "*"
+
+  - id: opencode-go
+    name: OpenCode Go
+    base_url: "https://opencode.ai/zen/go/v1"
+    api_key: "{env:K_AI_OPENCODE_GO_API_KEY}"
+    enabled: true
+    priority: 25
+    models:
+      - match_type: glob
+        pattern: "*"
+
+  - id: venice
+    name: Venice AI
+    base_url: "https://api.venice.ai/api/v1"
+    api_key: "{env:K_AI_VENICE_API_KEY}"
+    enabled: true
+    priority: 20
+    models:
+      - match_type: glob
+        pattern: "*"
+
+  - id: mistral
+    name: Mistral AI
+    base_url: "https://api.mistral.ai/v1"
+    api_key: "{env:K_AI_MISTRAL_API_KEY}"
+    enabled: true
+    priority: 20
+    models:
+      - match_type: glob
+        pattern: "*"
+
+aliases:
+  - id: local-prefix
+    name: Local Ollama prefix
+    match_type: regex
+    pattern: "^local-(?P<model>.+)$"
+    rewrite: "${1}"
+    provider_id: ollama-local
+    priority: 20
+    enabled: true
+
+  - id: glob-ollama
+    name: Glob ollama prefix
+    match_type: glob
+    pattern: "ollama-*"
+    rewrite: "${model}"
+    provider_id: ollama-local
+    priority: 10
+    prefix: "ollama-"
+    enabled: true
+
+  - id: or-prefix
+    name: OpenRouter prefix
+    match_type: glob
+    pattern: "or-*"
+    rewrite: "${model}"
+    provider_id: openrouter
+    priority: 15
+    prefix: "or-"
+    enabled: true
+
+  - id: oc-prefix
+    name: OpenCode prefix
+    match_type: glob
+    pattern: "oc-*"
+    rewrite: "${model}"
+    provider_id: opencode
+    priority: 15
+    prefix: "oc-"
+    enabled: true
+
+  - id: ocgo-prefix
+    name: OpenCode Go prefix
+    match_type: glob
+    pattern: "ocgo-*"
+    rewrite: "${model}"
+    provider_id: opencode-go
+    priority: 15
+    prefix: "ocgo-"
+    enabled: true
+
+  - id: venice-prefix
+    name: Venice prefix
+    match_type: glob
+    pattern: "v-*"
+    rewrite: "${model}"
+    provider_id: venice
+    priority: 15
+    prefix: "v-"
+    enabled: true
+
+  - id: mistral-prefix
+    name: Mistral prefix
+    match_type: glob
+    pattern: "m-*"
+    rewrite: "${model}"
+    provider_id: mistral
+    priority: 15
+    prefix: "m-"
+    enabled: true
+
+api_keys: []

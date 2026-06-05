@@ -1,0 +1,22 @@
+# Binaries
+/bin/
+/k-ai
+*.exe
+
+# Data
+/data/
+*.db
+
+# Environment
+.env
+docker-compose.override.yml
+
+# Go
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

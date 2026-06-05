@@ -1,0 +1,44 @@
+stages:
+  - validate
+  - deploy
+  - sync
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+validate:
+  stage: validate
+  image: golang:1.23-bookworm
+  script:
+    - go mod download
+    - make check
+
+deploy_homelab:
+  stage: deploy
+  tags:
+    - homelab
+  only:
+    - main
+  script:
+    - echo "Deploying k-ai to homelab..."
+    - chmod +x scripts/*.sh
+    - ./scripts/generate-prod-env.sh .env
+    - ./scripts/sync-env-from-runtimes.sh || true
+    - docker compose build
+    - docker compose up -d --remove-orphans
+    - sleep 5
+    - wget -qO- http://127.0.0.1:8080/health || (docker compose logs --tail=50 k-ai; exit 1)
+    - docker image prune -f
+  after_script:
+    - docker run --rm -v "$PWD:/work" alpine chown -R $(id -u):$(id -g) /work || true
+
+sync_github:
+  stage: sync
+  variables:
+    GITHUB_ORG: kpihx-labs
+    REPO_NAME: k-ai
+  only:
+    - main
+  script:
+    - git remote add github https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_ORG}/${REPO_NAME}.git || git remote set-url github https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_ORG}/${REPO_NAME}.git
+    - git push github $CI_COMMIT_SHA:refs/heads/main --force

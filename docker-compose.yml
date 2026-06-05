@@ -1,0 +1,48 @@
+name: k-ai
+
+services:
+  k-ai:
+    build: .
+    image: kpihx/k-ai:latest
+    container_name: k-ai
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      K_AI_CONFIG_PATH: /app/config/config.yaml
+      K_AI_DATA_DIR: /data
+      K_AI_OLLAMA_BASE_URL: ${K_AI_OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+    volumes:
+      - k_ai_data:/data
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.k-ai-private.rule=Host(`ai.kpihx-labs.com`)
+      - traefik.http.routers.k-ai-private.entrypoints=websecure
+      - traefik.http.routers.k-ai-private.tls=true
+      - traefik.http.routers.k-ai-private.tls.certresolver=cloudflare
+      - traefik.http.routers.k-ai-fallback.rule=Host(`ai.homelab`)
+      - traefik.http.routers.k-ai-fallback.entrypoints=websecure
+      - traefik.http.routers.k-ai-fallback.tls=true
+      - traefik.http.services.k-ai.loadbalancer.server.port=8080
+      - traefik.http.middlewares.k-ai-headers.headers.browserxssfilter=true
+      - traefik.http.middlewares.k-ai-headers.headers.contenttypenosniff=true
+      - traefik.http.middlewares.k-ai-headers.headers.framedeny=true
+      - traefik.http.routers.k-ai-private.middlewares=k-ai-headers
+      - traefik.http.routers.k-ai-fallback.middlewares=k-ai-headers
+
+volumes:
+  k_ai_data:
+    name: deploy_k_ai_data
+
+networks:
+  proxy:
+    external: true
