@@ -8,7 +8,7 @@ variables:
 
 validate:
   stage: validate
-  image: golang:1.23-bookworm
+  image: golang:1.25-bookworm
   script:
     - go mod download
     - make check
