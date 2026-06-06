@@ -27,7 +27,7 @@ deploy_homelab:
     - docker compose build
     - docker compose up -d --remove-orphans
     - sleep 5
-    - wget -qO- http://127.0.0.1:8080/health || (docker compose logs --tail=50 k-ai; exit 1)
+    - docker compose exec -T k-ai wget -qO- http://127.0.0.1:8080/health || (docker compose logs --tail=50 k-ai; exit 1)
     - docker image prune -f
   after_script:
     - docker run --rm -v "$PWD:/work" alpine chown -R $(id -u):$(id -g) /work || true
